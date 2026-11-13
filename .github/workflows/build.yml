@@ -1,0 +1,26 @@
+name: Build APK
+on: [workflow_dispatch, push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        run: |
+          if ! find . -name settings.gradle.kts | grep -q .; then
+            ls ./*.zip > /dev/null 2>&1 || { echo "No project or zip"; ls -a; exit 1; }
+            for z in ./*.zip; do unzip -oq "$z"; done
+          fi
+          f=$(find . -name settings.gradle.kts | head -n 1)
+          echo "dir=$(dirname "$f")" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: yes | sdkmanager --licenses > /dev/null || true
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 8.9 }
+      - run: gradle assembleDebug
+        working-directory: ${{ steps.find.outputs.dir }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-apk
+          path: "**/build/outputs/apk/debug/*.apk"
